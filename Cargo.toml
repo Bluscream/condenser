@@ -1,0 +1,59 @@
+[workspace]
+resolver = "2"
+members = ["crates/condenser-core", "src-tauri"]
+
+[workspace.package]
+version = "1.0.0"
+edition = "2021"
+license = "MIT"
+repository = "https://github.com/Bluscream/condenser"
+
+[workspace.dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+anyhow = "1"
+uuid = { version = "1", features = ["v4", "serde"] }
+directories = "6"
+tracing = "0.1"
+
+# Runtime fetching/extraction, replacing the former shell installer.
+ureq = { version = "3", features = ["json"] }
+sevenz-rust2 = "0.22"
+tar = "0.4"
+bzip2 = "0.6"
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+missing_debug_implementations = "warn"
+unreachable_pub = "warn"
+rust_2018_idioms = { level = "warn", priority = -1 }
+unused_qualifications = "warn"
+
+[workspace.lints.clippy]
+pedantic = { level = "warn", priority = -1 }
+nursery = { level = "warn", priority = -1 }
+
+# Correctness / panic discipline — these are hard errors.
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"
+indexing_slicing = "deny"
+integer_division = "deny"
+# Function length cap (threshold set in clippy.toml).
+too_many_lines = "deny"
+
+# Typing discipline.
+as_conversions = "warn"
+cast_possible_truncation = "warn"
+cast_precision_loss = "warn"
+cast_sign_loss = "warn"
+str_to_string = "warn"
+
+# Pedantic lints that fight the codebase's style without adding safety.
+module_name_repetitions = "allow"
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"
+multiple_crate_versions = "allow"
+# Nursery lint that rewrites readable `if let ... else` into nested closures.
+option_if_let_else = "allow"

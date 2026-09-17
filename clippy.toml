@@ -1,0 +1,9 @@
+# Function length cap requested for this project.
+too-many-lines-threshold = 100
+
+# Tests may unwrap/expect/panic freely — the lints exist to keep the library honest,
+# not to make assertions awkward.
+allow-unwrap-in-tests = true
+allow-expect-in-tests = true
+allow-panic-in-tests = true
+allow-indexing-slicing-in-tests = true

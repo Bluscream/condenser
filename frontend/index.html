@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Condenser</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <span class="mark">▶</span>
+        <h1>Condenser</h1>
+      </div>
+      <input id="search" type="search" placeholder="Search library…" autocomplete="off" />
+      <button id="runtime-btn" class="ghost" title="gbe_fork runtime">⚙ Runtime</button>
+      <button id="add-btn" class="primary">＋ Add game</button>
+    </header>
+
+    <!-- gbe_fork runtime status: fetched at runtime, never bundled -->
+    <aside id="rt-panel" class="drawer hidden">
+      <button id="rt-close" class="close" aria-label="Close">✕</button>
+      <h2>Steamworks runtime</h2>
+      <p class="hint">
+        Condenser does not bundle <code>gbe_fork</code> — it is released every few weeks,
+        so a bundled copy would ship stale. It is downloaded here instead.
+      </p>
+
+      <dl class="meta">
+        <dt>Installed</dt><dd id="rt-tag" class="mono">—</dd>
+        <dt>Published</dt><dd id="rt-pub" class="mono">—</dd>
+        <dt>Age</dt><dd id="rt-age">—</dd>
+        <dt>Platforms</dt><dd id="rt-plat">—</dd>
+      </dl>
+
+      <div id="rt-warn" class="warn hidden"></div>
+
+      <label class="field">
+        <span>Platform to install</span>
+        <select id="rt-platform">
+          <option value="windows">Windows games (12.8 MB)</option>
+          <option value="linux">Native Linux games (54.9 MB)</option>
+          <option value="both">Both</option>
+        </select>
+      </label>
+
+      <details class="sources">
+        <summary>Sources</summary>
+        <p class="hint">
+          Point Condenser at a different emulator fork or mirror. Assets are matched by
+          substring.
+        </p>
+        <label class="field">
+          <span>Emulator repository</span>
+          <input id="src-repo" type="text" spellcheck="false" placeholder="Detanup01/gbe_fork" />
+        </label>
+        <label class="field">
+          <span>API base URL</span>
+          <input id="src-api" type="text" spellcheck="false" placeholder="https://api.github.com" />
+        </label>
+        <label class="field">
+          <span>Windows asset match</span>
+          <input id="src-win" type="text" spellcheck="false" placeholder="emu-win-release" />
+        </label>
+        <label class="field">
+          <span>Linux asset match</span>
+          <input id="src-lin" type="text" spellcheck="false" placeholder="emu-linux-release" />
+        </label>
+        <label class="field">
+          <span>umu-run path (blank = search PATH)</span>
+          <input id="src-umu" type="text" spellcheck="false" placeholder="/usr/bin/umu-run" />
+        </label>
+        <button id="src-save" class="ghost">Save sources</button>
+        <button id="src-reset" class="ghost">Reset to defaults</button>
+      </details>
+
+      <div class="drawer-actions">
+        <button id="rt-check" class="ghost">Check for updates</button>
+        <button id="rt-install" class="primary big">Download &amp; install</button>
+      </div>
+    </aside>
+
+    <main>
+      <section id="empty" class="empty hidden">
+        <h2>No games yet</h2>
+        <p>
+          Add a Windows game executable to get started. Condenser runs it through
+          Proton via <code>umu</code>, with the Steamworks API emulated by
+          <code>gbe_fork</code> — no Steam client required.
+        </p>
+        <button id="empty-add" class="primary">＋ Add your first game</button>
+      </section>
+
+      <section id="grid" class="grid"></section>
+    </main>
+
+    <!-- Detail / settings drawer for a selected game -->
+    <aside id="drawer" class="drawer hidden">
+      <button id="drawer-close" class="close" aria-label="Close">✕</button>
+      <h2 id="d-title">—</h2>
+      <dl class="meta">
+        <dt>Executable</dt><dd id="d-exe" class="mono"></dd>
+        <dt>Steam AppID</dt><dd id="d-appid" class="mono"></dd>
+        <dt>Proton</dt><dd id="d-proton" class="mono"></dd>
+        <dt>Playtime</dt><dd id="d-play"></dd>
+      </dl>
+
+      <label class="field">
+        <span>Steamworks mode</span>
+        <select id="d-mode">
+          <option value="api_only">API only — swap steam_api.dll (most games)</option>
+          <option value="cold_client">Cold client — game needs steamclient</option>
+          <option value="none">None — DRM-free, no emulator</option>
+        </select>
+      </label>
+
+      <label class="field">
+        <span>Proton build</span>
+        <select id="d-proton-select"></select>
+      </label>
+
+      <label class="field">
+        <span>Launch options</span>
+        <input id="d-launch" type="text" spellcheck="false"
+               placeholder="gamescope -f -- %command%" />
+        <small class="hint-inline">
+          <code>%command%</code> is replaced by the real command. Tokens before it wrap
+          it (gamescope, mangohud); <code>VAR=value</code> pairs become environment
+          variables; tokens after it are passed to the game.
+        </small>
+      </label>
+
+      <div class="emu-state">
+        <span id="d-emu-badge" class="badge">not deployed</span>
+        <button id="d-deploy" class="ghost">Deploy emulator</button>
+        <button id="d-revert" class="ghost">Restore originals</button>
+      </div>
+
+      <div class="drawer-actions">
+        <button id="d-play" class="primary big">▶ Play</button>
+        <button id="d-remove" class="danger">Remove from library</button>
+      </div>
+    </aside>
+
+    <div id="toast" class="toast hidden"></div>
+
+    <script type="module" src="src/main.js"></script>
+  </body>
+</html>

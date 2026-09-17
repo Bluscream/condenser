@@ -1,0 +1,25 @@
+[package]
+name = "condenser"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Steam-like launcher for Steam games, without Steam."
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+condenser-core = { path = "../crates/condenser-core" }
+tauri = { version = "2", features = [] }
+tauri-plugin-dialog = "2"
+tauri-plugin-opener = "2"
+serde.workspace = true
+serde_json.workspace = true
+uuid.workspace = true
+anyhow.workspace = true
+
+[features]
+custom-protocol = ["tauri/custom-protocol"]
+
+[lints]
+workspace = true
