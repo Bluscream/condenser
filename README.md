@@ -227,6 +227,38 @@ mirror, or a GitHub Enterprise host:
 Assets are matched by substring, so a fork that keeps upstream naming needs only the
 repository changed.
 
+## Emulator settings
+
+gbe_fork is configured through INI files in its `steam_settings/` folder, where the
+section prefix selects the file — `[user::general]` lives in `configs.user.ini`,
+`[app::dlcs]` in `configs.app.ini`, and so on.
+
+Condenser exposes this as **two layers**, in the UI (*Emulator settings*, in the game
+drawer and the Runtime panel) and on the CLI:
+
+```bash
+condenser config show                                   # global layer
+condenser config show --game "Left 4"                   # effective, with the source of each value
+condenser config set user::general::account_name Ada    # global
+condenser config set --game "Left 4" main::connectivity::offline 1
+condenser config unset --game "Left 4" main::connectivity::offline
+condenser config keys                                   # common keys, with descriptions
+```
+
+**Per-game entries override global ones.** The merged result is written into the game's
+`steam_settings/` on the next deploy, so changes need a re-deploy (or just press Play) to
+take effect.
+
+Any `<user|main|app|overlay>::<section>::<key>` is accepted, not just the common ones —
+see [gbe_fork's `steam_settings.EXAMPLE`](https://github.com/Detanup01/gbe_fork/tree/main/post_build/steam_settings.EXAMPLE)
+for the full reference.
+
+> **Why not upstream's global folder?** gbe_fork also reads a global `GSE Saves/settings/`
+> directory, but for Windows games that path resolves *inside the Wine prefix* — and since
+> every game gets its own prefix, it would not be global at all. Condenser keeps the global
+> layer itself and merges it in at deploy time, which upstream documents as always winning.
+> The precedence you observe is the same, and it behaves identically for native Linux games.
+
 ## Steamworks modes
 
 | Mode | When to use |
@@ -267,5 +299,7 @@ Not yet implemented:
 
 ## License
 
-MIT. `umu-launcher` and `gbe_fork` are separate projects under their own licenses and are
-not redistributed here — Condenser fetches or invokes them.
+[Unlicense](LICENSE) — public domain.
+
+`umu-launcher` (GPL-3.0) and `gbe_fork` (LGPL-3.0) are separate projects under their own
+licenses and are **not redistributed here**; Condenser fetches or invokes them at runtime.

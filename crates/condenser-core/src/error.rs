@@ -33,6 +33,9 @@ pub enum Error {
     #[error("could not check for gbe_fork updates: {0}")]
     UpdateCheckFailed(String),
 
+    #[error("invalid emulator config key {0:?} — expected <user|main|app|overlay>::<section>::<key>")]
+    BadConfigKey(String),
+
     #[error("gbe_fork install failed: {0}")]
     InstallFailed(String),
 

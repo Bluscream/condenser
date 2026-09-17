@@ -230,6 +230,103 @@ main { padding: 24px 20px 60px; }
   margin-bottom: 18px;
 }
 
+.cfg {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 18px;
+}
+.cfg summary {
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--text-dim);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.cfg[open] summary { margin-bottom: 10px; color: var(--text); }
+.cfg-count {
+  font-size: 10px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+}
+.cfg-section {
+  font-family: ui-monospace, monospace;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--text-dim);
+  margin: 12px 0 4px;
+}
+.cfg-groups > .cfg-section:first-child { margin-top: 4px; }
+.cfg-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.cfg-table td {
+  padding: 3px 4px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+.cfg-table td.k {
+  font-family: ui-monospace, monospace;
+  color: var(--text-dim);
+  width: 45%;
+  word-break: break-all;
+}
+.cfg-table tr.own td.k { color: var(--text); }
+.cfg-table td.a { width: 64px; text-align: right; }
+
+/* Inline editing: an inherited value looks like text until focused. */
+.cfg-inline {
+  width: 100%;
+  padding: 4px 6px;
+  background: transparent;
+  color: var(--text-dim);
+  border: 1px solid transparent;
+  border-radius: 6px;
+  font-family: ui-monospace, monospace;
+  font-size: 12px;
+}
+.cfg-table tr.own .cfg-inline { color: var(--accent-hot); }
+.cfg-inline:hover { border-color: var(--border); }
+.cfg-inline:focus {
+  outline: none;
+  background: var(--bg);
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.cfg-src {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+}
+.cfg-del {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  padding: 0 4px;
+  font-size: 13px;
+}
+.cfg-del:hover { color: var(--accent); }
+.cfg-add { display: flex; gap: 6px; margin-top: 12px; }
+.cfg-add input {
+  flex: 1;
+  min-width: 0;
+  padding: 7px 9px;
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  font-family: ui-monospace, monospace;
+  font-size: 11px;
+}
+.cfg-add input:focus { outline: none; border-color: var(--accent); }
+.cfg-add .cfg-value { flex: 0 1 32%; }
+
 /* ---------- toast ---------- */
 .toast {
   position: fixed;

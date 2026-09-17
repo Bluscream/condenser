@@ -12,6 +12,7 @@
 use condenser_core::{Engine, Game};
 use uuid::Uuid;
 
+pub(crate) mod config_cmds;
 pub(crate) mod games;
 pub(crate) mod runtime_cmds;
 
@@ -41,6 +42,13 @@ EMULATOR
   deploy <game>                          inject the emulator
   revert <game>                          restore the game's original files
   revert-all                             restore every game in the library
+
+EMULATOR CONFIG                          (omit --game to act on the global layer)
+  config show [--game G] [--json]        effective settings and where each came from
+  config get <key> [--game G]            one value
+  config set <key> <value> [--game G]    set it
+  config unset <key> [--game G]          remove it
+  config keys [--json]                   commonly used keys
 
 RUNTIME
   runtime status [--json]                installed emulator release
@@ -85,6 +93,7 @@ pub(crate) fn run(args: &[String]) -> CliResult {
         "deploy" => games::deploy(rest),
         "revert" => games::revert(rest),
         "revert-all" => games::revert_all(),
+        "config" => config_cmds::dispatch(rest),
         "runtime" => runtime_cmds::dispatch(rest),
         "proton" => runtime_cmds::proton_dispatch(rest),
         "sources" => runtime_cmds::sources_dispatch(rest),

@@ -34,6 +34,9 @@ pub struct Game {
     pub proton: String,
     #[serde(default)]
     pub steam_mode: SteamMode,
+    /// Per-game emulator settings, layered over the global ones.
+    #[serde(default)]
+    pub emu_config: crate::EmuConfig,
     /// Steam-style launch options, e.g. `gamescope -f -- %command%` or
     /// `WINEDLLOVERRIDES="mss32=n,b" %command% -novid`. See [`crate::launch_options`].
     #[serde(default)]
@@ -73,6 +76,7 @@ impl Game {
             prefix,
             proton: default_proton(),
             steam_mode: SteamMode::default(),
+            emu_config: crate::EmuConfig::default(),
             launch_options: String::new(),
             artwork: Artwork::default(),
             emu_deployed: false,

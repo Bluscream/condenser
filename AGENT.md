@@ -193,6 +193,39 @@ its colour scheme — closed dropdowns looked washed out while their open option
 correctly dark. The fix is `color-scheme: dark` on `:root`, plus `appearance: none` and a
 custom chevron so the control matches the panel rather than the platform.
 
+## Emulator config is layered, and one key was wrong in 1.0.0
+
+`emu_config.rs` stores settings flat, keyed by `user::general::account_name`, so merging
+is trivial and no part of gbe_fork's schema has to be modelled. The section prefix selects
+the INI file. Global lives in `Settings`, per-game on `Game`, and `deploy` writes
+`global.merged_with(&game)` into `steam_settings/`.
+
+Two things worth not re-breaking:
+
+* `write_to` **deletes** a config file that no longer has entries. Without that, removing
+  the last `main::` key would leave a stale `configs.main.ini` applying forever.
+* 1.0.0 wrote `force_account_name.txt`, a **Goldberg-era** setting. Current gbe_fork does
+  not read it — verified against `dll/settings_parser.cpp`, which takes `account_name`
+  from `[user::general]` in `configs.user.ini`. `deploy` now deletes any stale copy.
+  When touching emulator settings, check the parser rather than trusting Goldberg docs.
+
+## The emulator settings widget
+
+`createEmuConfigWidget({ mount, game })` in `frontend/src/main.js` builds its own DOM and
+is instantiated twice — once with `game: null` (global, in the Runtime panel) and once
+per selected game (`emuGameConfig.setGame(id)` when the drawer opens). The `game`
+variable is the *only* difference between the two; there is deliberately no duplicated
+markup in `index.html`, just two empty mount divs.
+
+Behaviour that matters:
+
+* rows are grouped by `<file>::<section>` and show only the leaf key, since the group
+  header already carries the rest;
+* an inherited row is dimmed with a `global` badge — **editing it creates an override**
+  at that layer, which is the main interaction;
+* an overridden row gets ↺ (revert to global) per-game, or ✕ (delete) when global;
+* clearing an inline value removes the entry rather than storing an empty string.
+
 ## Testing the GUI
 
 `mcp__linux-gui` drives the app. Two practical notes:

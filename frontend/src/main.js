@@ -97,6 +97,7 @@ function openDrawer(id) {
   badge.classList.toggle("on", g.emu_deployed);
 
   $("drawer").classList.remove("hidden");
+  void emuGameConfig.setGame(id);
 }
 
 // Proton builds are discovered once and reused for every drawer open.
@@ -304,6 +305,7 @@ function renderRuntime(st) {
 async function openRuntime() {
   $("rt-panel").classList.remove("hidden");
   await loadSources();
+  await emuGlobalConfig.refresh();
   try {
     renderRuntime(await invoke("runtime_status"));
   } catch (e) {
@@ -393,3 +395,223 @@ document.addEventListener("keydown", (e) => {
 });
 
 refresh();
+
+// --- emulator settings widget ---------------------------------------------
+//
+// One reusable component for both layers. `game` is a game id, or null for the
+// global layer — that single variable is the only difference between the two
+// instances, and it can be changed at runtime with setGame().
+
+/** Shared across instances: the common-key list is identical everywhere. */
+let emuKeyCatalog = null;
+
+async function emuKeys() {
+  if (emuKeyCatalog) return emuKeyCatalog;
+  try {
+    emuKeyCatalog = await invoke("emu_config_keys");
+  } catch {
+    emuKeyCatalog = [];
+  }
+  return emuKeyCatalog;
+}
+
+function el(tag, className, text) {
+  const node = document.createElement(tag);
+  if (className) node.className = className;
+  if (text != null) node.textContent = text;
+  return node;
+}
+
+function createEmuConfigWidget({ mount, game = null, open = false }) {
+  const root = typeof mount === "string" ? $(mount) : mount;
+  let gameId = game;
+
+  // --- structure, built once -------------------------------------------
+  const details = el("details", "cfg");
+  details.open = open;
+  const summary = el("summary");
+  const summaryLabel = el("span", "cfg-title");
+  const summaryCount = el("span", "cfg-count");
+  summary.append(summaryLabel, summaryCount);
+
+  const hint = el("p", "hint");
+  const groups = el("div", "cfg-groups");
+
+  const keyInput = el("input", "cfg-key");
+  keyInput.placeholder = "section::key";
+  keyInput.spellcheck = false;
+  const datalist = el("datalist");
+  datalist.id = `cfg-keys-${Math.random().toString(36).slice(2, 8)}`;
+  keyInput.setAttribute("list", datalist.id);
+
+  const valueInput = el("input", "cfg-value");
+  valueInput.placeholder = "value";
+  valueInput.spellcheck = false;
+
+  const addButton = el("button", "ghost cfg-apply", "Add");
+  const addRow = el("div", "cfg-add");
+  addRow.append(keyInput, valueInput, addButton, datalist);
+
+  details.append(summary, hint, groups, addRow);
+  root.replaceChildren(details);
+
+  // --- behaviour --------------------------------------------------------
+  const isGlobal = () => gameId == null;
+
+  async function save(key, value) {
+    await invoke("emu_config_set", { gameId, key, value });
+    await refresh();
+  }
+
+  async function remove(key) {
+    await invoke("emu_config_unset", { gameId, key });
+    await refresh();
+  }
+
+  /** One row: key, editable value, provenance, and the right action. */
+  function buildRow(key, value, ownValue, globalValue) {
+    const overridden = ownValue !== undefined;
+    const row = el("tr", overridden ? "own" : "inherited");
+
+    row.append(el("td", "k", key.split("::").slice(2).join("::") || key));
+
+    const valueCell = el("td", "v");
+    const input = el("input", "cfg-inline");
+    input.value = value;
+    input.spellcheck = false;
+    // Editing an inherited row creates an override at this layer.
+    input.addEventListener("change", async () => {
+      const next = input.value.trim();
+      if (next === value) return;
+      try {
+        if (next === "") {
+          await remove(key);
+        } else {
+          await save(key, next);
+        }
+      } catch (e) {
+        toast(`Could not save ${key}: ${e}`, true);
+        input.value = value;
+      }
+    });
+    valueCell.appendChild(input);
+    row.appendChild(valueCell);
+
+    const action = el("td", "a");
+    if (overridden) {
+      const button = el("button", "cfg-del", isGlobal() ? "✕" : "↺");
+      button.title = isGlobal()
+        ? "Remove this setting"
+        : `Revert to global${globalValue === undefined ? "" : ` (${globalValue})`}`;
+      button.addEventListener("click", async () => {
+        try {
+          await remove(key);
+        } catch (e) {
+          toast(`Could not remove ${key}: ${e}`, true);
+        }
+      });
+      action.appendChild(button);
+    } else {
+      const badge = el("span", "cfg-src", "global");
+      badge.title = "Inherited from the global layer — edit to override for this game";
+      action.appendChild(badge);
+    }
+    row.appendChild(action);
+    return row;
+  }
+
+  async function refresh() {
+    const keys = await emuKeys();
+    datalist.replaceChildren(
+      ...keys.map(({ key, description }) => {
+        const option = el("option");
+        option.value = key;
+        option.label = description;
+        return option;
+      })
+    );
+
+    summaryLabel.textContent = isGlobal()
+      ? "Emulator settings (global)"
+      : "Emulator settings for this game";
+    hint.innerHTML = isGlobal()
+      ? "Applied to every game. A game's own entries take precedence."
+      : "Overrides the global settings. Written to the game's <code>steam_settings/</code> on the next deploy.";
+
+    let data;
+    try {
+      data = await invoke("emu_config_show", { gameId });
+    } catch (e) {
+      groups.replaceChildren(el("p", "hint", `Could not read settings: ${e}`));
+      return;
+    }
+
+    const own = (isGlobal() ? data.global : data.game) || {};
+    const entries = Object.entries(data.effective);
+    const ownCount = Object.keys(own).length;
+    summaryCount.textContent = isGlobal()
+      ? `${entries.length}`
+      : `${ownCount} override${ownCount === 1 ? "" : "s"}`;
+
+    if (entries.length === 0) {
+      groups.replaceChildren(el("p", "hint", "Nothing set yet."));
+      return;
+    }
+
+    // Group by "<file>::<section>" so related settings sit together.
+    const bySection = new Map();
+    for (const [key, value] of entries) {
+      const section = key.split("::").slice(0, 2).join("::");
+      if (!bySection.has(section)) bySection.set(section, []);
+      bySection.get(section).push([key, value]);
+    }
+
+    const rendered = [];
+    for (const [section, rows] of [...bySection].sort()) {
+      rendered.push(el("div", "cfg-section", section));
+      const table = el("table", "cfg-table");
+      const body = el("tbody");
+      for (const [key, value] of rows.sort()) {
+        body.appendChild(buildRow(key, value, own[key], data.global[key]));
+      }
+      table.appendChild(body);
+      rendered.push(table);
+    }
+    groups.replaceChildren(...rendered);
+  }
+
+  const add = async () => {
+    const key = keyInput.value.trim();
+    const value = valueInput.value.trim();
+    if (!key || !value) {
+      toast("A key and a value are both required", true);
+      return;
+    }
+    try {
+      await save(key, value);
+      keyInput.value = "";
+      valueInput.value = "";
+      toast("Saved — applies on the next deploy");
+    } catch (e) {
+      toast(`${e}`, true);
+    }
+  };
+  addButton.addEventListener("click", add);
+  for (const input of [keyInput, valueInput]) {
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") add();
+    });
+  }
+
+  return {
+    /** Point the widget at a different game, or null for the global layer. */
+    async setGame(id) {
+      gameId = id ?? null;
+      await refresh();
+    },
+    refresh,
+  };
+}
+
+const emuGlobalConfig = createEmuConfigWidget({ mount: "cfg-global", game: null });
+const emuGameConfig = createEmuConfigWidget({ mount: "cfg-game", game: null });

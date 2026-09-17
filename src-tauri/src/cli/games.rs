@@ -191,7 +191,8 @@ pub(crate) fn deploy(args: &[String]) -> CliResult {
     let id = resolve_game(&engine, require_arg(&positional, 0, "<game>")?)?;
     let gbe_dir = engine.paths.gbe_dir();
     let game = engine.library.get(id)?.clone();
-    gbe::deploy(&game, &gbe_dir)?;
+    let config = engine.settings.emu_config.merged_with(&game.emu_config);
+    gbe::deploy(&game, &gbe_dir, &config)?;
     engine.library.get_mut(id)?.emu_deployed = true;
     engine.save()?;
     println!("deployed emulator into {}", game.game_dir().display());

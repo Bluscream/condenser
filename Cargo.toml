@@ -5,7 +5,7 @@ members = ["crates/condenser-core", "src-tauri"]
 [workspace.package]
 version = "1.0.0"
 edition = "2021"
-license = "MIT"
+license = "Unlicense"
 repository = "https://github.com/Bluscream/condenser"
 
 [workspace.dependencies]

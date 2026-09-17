@@ -8,6 +8,7 @@
 //! without webkit2gtk; the Tauri shell depends on it.
 
 pub mod config;
+pub mod emu_config;
 pub mod error;
 pub mod gbe;
 pub mod launch_options;
@@ -18,6 +19,7 @@ pub mod runtime;
 pub mod umu;
 
 pub use config::{AppPaths, Settings};
+pub use emu_config::EmuConfig;
 pub use error::{Error, Result};
 pub use library::Library;
 pub use model::{Artwork, Game, SteamMode};
@@ -62,7 +64,8 @@ impl Engine {
         let game = self.library.get(id)?.clone();
 
         if game.steam_mode != SteamMode::None && !game.emu_deployed {
-            gbe::deploy(&game, &gbe_dir)?;
+            let config = self.settings.emu_config.merged_with(&game.emu_config);
+            gbe::deploy(&game, &gbe_dir, &config)?;
             self.library.get_mut(id)?.emu_deployed = true;
         }
 

@@ -121,6 +121,9 @@ pub struct Settings {
     /// Where the Steamworks emulator comes from.
     #[serde(default)]
     pub emulator: EmulatorSource,
+    /// Emulator settings applied to every game; per-game entries override these.
+    #[serde(default = "crate::emu_config::defaults")]
+    pub emu_config: crate::EmuConfig,
     /// Default Proton build for new games.
     pub default_proton: String,
     /// `SteamGridDB` API key for artwork.
@@ -134,6 +137,7 @@ impl Default for Settings {
         Self {
             umu: UmuSource::default(),
             emulator: EmulatorSource::default(),
+            emu_config: crate::emu_config::defaults(),
             default_proton: "GE-Proton".into(),
             steamgriddb_key: None,
             emu_generate_online: true,

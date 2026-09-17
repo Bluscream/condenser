@@ -98,7 +98,8 @@ fn deploy_emu(state: State<'_, AppState>, id: String) -> Result<(), String> {
     let mut engine = state.0.lock().map_err(err)?;
     let gbe_dir = engine.paths.gbe_dir();
     let game = engine.library.get(uuid).map_err(err)?.clone();
-    gbe::deploy(&game, &gbe_dir).map_err(err)?;
+    let config = engine.settings.emu_config.merged_with(&game.emu_config);
+    gbe::deploy(&game, &gbe_dir, &config).map_err(err)?;
     engine.library.get_mut(uuid).map_err(err)?.emu_deployed = true;
     engine.save().map_err(err)
 }
@@ -202,6 +203,84 @@ async fn runtime_install(
     .map_err(err)?
 }
 
+// --- emulator configuration (global + per-game) ---------------------------
+
+fn game_uuid(id: Option<String>) -> Result<Option<Uuid>, String> {
+    id.filter(|s| !s.is_empty())
+        .map(|s| Uuid::parse_str(&s).map_err(err))
+        .transpose()
+}
+
+/// Global entries, this game's own entries, and the merged result.
+#[tauri::command]
+fn emu_config_show(
+    state: State<'_, AppState>,
+    game_id: Option<String>,
+) -> Result<serde_json::Value, String> {
+    let uuid = game_uuid(game_id)?;
+    let engine = state.0.lock().map_err(err)?;
+    let global = engine.settings.emu_config.clone();
+    let game = uuid
+        .and_then(|id| engine.library.get(id).ok())
+        .map(|g| g.emu_config.clone());
+    let effective = game
+        .as_ref()
+        .map_or_else(|| global.clone(), |g| global.merged_with(g));
+    Ok(serde_json::json!({
+        "global": global,
+        "game": game,
+        "effective": effective,
+    }))
+}
+
+/// Set one key. Without `game_id` this writes the global layer.
+#[tauri::command]
+fn emu_config_set(
+    state: State<'_, AppState>,
+    game_id: Option<String>,
+    key: String,
+    value: String,
+) -> Result<(), String> {
+    let uuid = game_uuid(game_id)?;
+    let mut engine = state.0.lock().map_err(err)?;
+    match uuid {
+        Some(id) => engine
+            .library
+            .get_mut(id)
+            .map_err(err)?
+            .emu_config
+            .set(&key, &value)
+            .map_err(err)?,
+        None => engine.settings.emu_config.set(&key, &value).map_err(err)?,
+    }
+    engine.save().map_err(err)
+}
+
+#[tauri::command]
+fn emu_config_unset(
+    state: State<'_, AppState>,
+    game_id: Option<String>,
+    key: String,
+) -> Result<bool, String> {
+    let uuid = game_uuid(game_id)?;
+    let mut engine = state.0.lock().map_err(err)?;
+    let removed = match uuid {
+        Some(id) => engine.library.get_mut(id).map_err(err)?.emu_config.unset(&key),
+        None => engine.settings.emu_config.unset(&key),
+    };
+    engine.save().map_err(err)?;
+    Ok(removed)
+}
+
+/// Commonly-used keys with descriptions, for the editor's picker.
+#[tauri::command]
+fn emu_config_keys() -> Vec<serde_json::Value> {
+    condenser_core::emu_config::COMMON_KEYS
+        .iter()
+        .map(|(key, description)| serde_json::json!({ "key": key, "description": description }))
+        .collect()
+}
+
 /// Steam-style launch options, e.g. `gamescope -f -- %command%`.
 #[tauri::command]
 fn set_launch_options(state: State<'_, AppState>, id: String, options: String) -> Result<(), String> {
@@ -296,6 +375,10 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             set_proton,
             get_sources,
             set_sources,
+            emu_config_show,
+            emu_config_set,
+            emu_config_unset,
+            emu_config_keys,
         ])
         .run(tauri::generate_context!())?;
     Ok(())

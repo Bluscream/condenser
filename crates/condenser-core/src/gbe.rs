@@ -7,6 +7,7 @@
 
 use crate::error::{Error, Result};
 use crate::model::{Game, SteamMode};
+use crate::EmuConfig;
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -61,7 +62,7 @@ pub fn find_steam_api(game_dir: &Path) -> Result<Vec<SteamApiSlot>> {
 /// Backs up the originals, links in the emulator libraries, and writes the
 /// `steam_settings/` folder (at minimum, the `AppID`). Idempotent — re-running refreshes
 /// the emulator libraries but never clobbers an existing backup.
-pub fn deploy(game: &Game, gbe_dir: &Path) -> Result<()> {
+pub fn deploy(game: &Game, gbe_dir: &Path, config: &EmuConfig) -> Result<()> {
     if game.steam_mode == SteamMode::None {
         return Ok(());
     }
@@ -101,7 +102,7 @@ pub fn deploy(game: &Game, gbe_dir: &Path) -> Result<()> {
         // On a re-deploy the current file is our own link/copy, never the original —
         // the backup above is the only authority for the game's real library.
         link_or_copy(&emu, &slot.original)?;
-        write_steam_settings(slot.original.parent().unwrap_or(&game_dir), game)?;
+        write_steam_settings(slot.original.parent().unwrap_or(&game_dir), game, config)?;
     }
     Ok(())
 }
@@ -203,16 +204,20 @@ pub fn revert(game: &Game) -> Result<()> {
     Ok(())
 }
 
-/// Write the minimal `gbe_fork` `steam_settings/` next to the emu DLL.
-fn write_steam_settings(dir: &Path, game: &Game) -> Result<()> {
+/// Write `steam_settings/` next to the emulator library: the `AppID` plus the merged
+/// global and per-game configuration.
+fn write_steam_settings(dir: &Path, game: &Game, config: &EmuConfig) -> Result<()> {
     let settings = dir.join("steam_settings");
     fs::create_dir_all(&settings)?;
     if let Some(app_id) = game.app_id {
         fs::write(settings.join("steam_appid.txt"), app_id.to_string())?;
     }
-    // Offline + LAN-friendly defaults. Full configs (achievements, DLC, items) are
-    // produced by the config generator; this is the baseline.
-    fs::write(settings.join("force_account_name.txt"), "Condenser")?;
+    config.write_to(&settings)?;
+
+    // Goldberg read the account name from this file; current gbe_fork does not look at
+    // it at all (it uses `account_name` in configs.user.ini). Remove any copy an older
+    // Condenser left behind so it cannot mislead.
+    let _ = fs::remove_file(settings.join("force_account_name.txt"));
     Ok(())
 }
 
@@ -262,7 +267,7 @@ mod tests {
         let mut game = Game::new("Test", game_dir.join("game.exe"), tmp.path().join("pfx"));
         game.app_id = Some(480);
 
-        deploy(&game, &gbe).unwrap();
+        deploy(&game, &gbe, &EmuConfig::default()).unwrap();
         // The deployed library is a symlink into the shared gbe dir, not a copy.
         let deployed = game_dir.join("steam_api64.dll");
         assert!(
@@ -305,13 +310,13 @@ mod tests {
         fs::write(gbe.join("steam_api64.dll"), b"EMU-V1").unwrap();
 
         let game = Game::new("Test", game_dir.join("game.exe"), tmp.path().join("pfx"));
-        deploy(&game, &gbe).unwrap();
+        deploy(&game, &gbe, &EmuConfig::default()).unwrap();
 
         // Simulate a gbe_fork update, then re-deploy. Unlocking first is what
         // `runtime::install` does — deploy leaves the library read-only.
         unlock_runtime(&gbe).unwrap();
         fs::write(gbe.join("steam_api64.dll"), b"EMU-V2").unwrap();
-        deploy(&game, &gbe).unwrap();
+        deploy(&game, &gbe, &EmuConfig::default()).unwrap();
 
         assert_eq!(
             fs::read(game_dir.join("steam_api64.dll")).unwrap(),
@@ -348,7 +353,7 @@ mod tests {
         fs::write(gbe.join("steam_api64.dll"), b"EMU").unwrap();
 
         let game = Game::new("Test", game_dir.join("game.exe"), tmp.path().join("pfx"));
-        deploy(&game, &gbe).unwrap();
+        deploy(&game, &gbe, &EmuConfig::default()).unwrap();
 
         let shared = gbe.join("steam_api64.dll");
         assert_eq!(
@@ -424,7 +429,7 @@ mod tests {
             fs::create_dir_all(&dir).unwrap();
             fs::write(dir.join("steam_api64.dll"), b"ORIGINAL").unwrap();
             let game = Game::new(name, dir.join("g.exe"), tmp.path().join("pfx"));
-            deploy(&game, &gbe).unwrap();
+            deploy(&game, &gbe, &EmuConfig::default()).unwrap();
 
             let link = dir.join("steam_api64.dll");
             assert_eq!(
@@ -450,7 +455,7 @@ mod tests {
         fs::write(gbe.join("steam_api64.dll"), b"EMU").unwrap();
 
         let game = Game::new("Linux Game", game_dir.join("game"), tmp.path().join("pfx"));
-        let err = deploy(&game, &gbe).unwrap_err();
+        let err = deploy(&game, &gbe, &EmuConfig::default()).unwrap_err();
         assert!(
             matches!(err, Error::MissingEmuLibrary { name, .. } if name == "libsteam_api.so"),
             "expected MissingEmuLibrary, got {err:?}"
